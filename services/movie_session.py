@@ -1,5 +1,8 @@
 from db.models import MovieSession, CinemaHall, Movie
+
 from datetime import datetime
+
+from django.db.models import QuerySet
 
 
 def create_movie_session(
@@ -14,18 +17,16 @@ def create_movie_session(
     )
 
 
-def get_movies_sessions(session_date: datetime = None) -> list[MovieSession]:
+def get_movies_sessions(session_date: str = None) -> QuerySet:
+    queryset = MovieSession.objects.all()
     if session_date:
-        return MovieSession.objects.filter(
-            show_time__date=datetime.strptime(
-                session_date, "%Y-%m-%d"
-            ).date()
-        )
-    return MovieSession.objects.all()
+        session_date = datetime.strptime(session_date, "%Y-%m-%d")
+        queryset = queryset.filter(show_time__date=session_date.date())
+    return queryset
 
 
 def get_movie_session_by_id(movie_session_id: int) -> MovieSession:
-    return MovieSession.objects.get(id=movie_session_id)
+    return MovieSession.objects.get(pk=movie_session_id)
 
 
 def update_movie_session(
@@ -34,18 +35,23 @@ def update_movie_session(
     movie_id: int = None,
     cinema_hall_id: int = None
 ) -> MovieSession:
-    movie_session = MovieSession.objects.get(id=session_id)
+    updates = {}
     if show_time:
-        movie_session.show_time = show_time
+        updates["show_time"] = show_time
     if movie_id:
-        movie_session.movie = Movie.objects.get(id=movie_id)
+        updates["movie"] = Movie.objects.get(pk=movie_id)
     if cinema_hall_id:
-        movie_session.cinema_hall = CinemaHall.objects.get(
-            id=cinema_hall_id
-        )
-    movie_session.save()
-    return movie_session
+        updates["cinema_hall"] = CinemaHall.objects.get(pk=cinema_hall_id)
+
+    if updates:
+        MovieSession.objects.filter(
+            pk=session_id
+        ).update(**updates)
+        return MovieSession.objects.get(pk=session_id)
+
+    return MovieSession.objects.get(pk=session_id)
 
 
 def delete_movie_session_by_id(session_id: int) -> None:
-    MovieSession.objects.filter(id=session_id).delete()
+    movie_session = get_movie_session_by_id(session_id)
+    movie_session.delete()
